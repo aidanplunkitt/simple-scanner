@@ -76,6 +76,7 @@ void (*pf[])(void) = {handleOther, handleWhitespace, handleSpecial, handleAlpha,
 Token t;
 string input;
 int i, branchCount;
+int counts[5];
 
 int main(int argc, char *argv[]) {
 	/* Check that input and output file are given on commandline */
@@ -112,7 +113,9 @@ int main(int argc, char *argv[]) {
 	outputf.seekp(outputf.tellp() - (long) 2);
 	outputf << "\n";
 
-	cout << "Number of branches: " << branchCount << "\n";
+	cout << "Total number of branches: " << branchCount << "\n";
+	cout << counts[0] << " " << counts[1] << " " << counts[2] 
+	       	       	  << " " << counts[3] << " " << counts[4] << "\n";
 }
 
 void tokenize(ostream& f) {
@@ -125,6 +128,7 @@ void tokenize(ostream& f) {
 		f << "(\"" << t.lexeme << "\", " << t.category << "), ";
 		i++;
 
+		counts[0]++;
 		branchCount++;
 	}
 }
@@ -142,14 +146,19 @@ void handleAlpha() {
 		keywordLetter = keywordChars[c];
 		state = keywordStates[state][keywordLetter];
 
+		counts[1]++;
 		branchCount++;
 	}
 
+	counts[2]++;
 	branchCount ++; // increment once for if/else
 	if (lastState == -1) {
 		t.category = "KW";
 	} else {
-		while(asciiToCategory[input.at(++i)] == 3 && i < input.length()) branchCount++;
+		while(asciiToCategory[input.at(++i)] == 3 && i < input.length()) {
+			counts[3]++;
+			branchCount++;
+		}
 		t.category = "ID";
 	}
 
@@ -161,7 +170,10 @@ void handleAlpha() {
 
 void handleNum() {
 	int start = i;
-	while(asciiToCategory[input.at(++i)] == 4 && i < input.length()) branchCount++;
+	while(asciiToCategory[input.at(++i)] == 4 && i < input.length()) {
+		counts[4]++;
+		branchCount++;
+	}
 	t.lexeme = input.substr(start, i - start);
 	t.category = "NUM";
 

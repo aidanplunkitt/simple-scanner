@@ -1,0 +1,10 @@
+Total number of branches (if/while/case):	60
+						--
+Check for more input in tokenize():		29
+Keyword state machine loop:			21
+Check if a string matched a keyword:		 8
+Check for more input in an ID:			 1
+Check for more input in a NUM:			 1
+
+
+See counts[] increments in source code for details
