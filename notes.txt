@@ -1,0 +1,17 @@
+separate into tokens (lexeme + category)
+
+case insensitive (toLower() function for ID)
+
+Categories:
+	KW: keyword
+	WS: whitespace, including newlines
+	SYM: special characters '(', ';', ')', '=', '+'
+	ID: identifier, aka string that is not a keyword
+	NUM: number
+
+count number of if's/loops/case switches taken
+
+while getToken(input) != NULL:wq
+
+
+

@@ -1,0 +1,1 @@
+if (ed = 10) then return; else ED = ed+1; end;
