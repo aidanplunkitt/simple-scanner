@@ -9,24 +9,15 @@ using namespace std;
 struct Token {
 	string lexeme;
 	string category;
-	/*
-	char lexeme[20];
-	char categoryStr[4];
-	*/
 };
 
-enum Category {
-	Other,
-	Whitespace,
-	Special,
-	Alpha,
-	Digit
-};
-
-string input;
-int i = 0;
-Token t;
-
+/* Categories:
+ * 0: Other
+ * 1: Whitespace
+ * 2: Special Characters
+ * 3: Alpha
+ * 4: Digit
+ */
 int asciiToCategory[128] = {
 0, 0, 0, 0, 0, 0, 0, 0,   0, 1, 1, 0, 0, 1, 0, 0, // \t \n \r
 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
@@ -38,6 +29,7 @@ int asciiToCategory[128] = {
 3, 3, 3, 3, 3, 3, 3, 3,   3, 3, 3, 0, 0, 0, 0, 0, // p-z
 };
 
+/* Used for state machine table keywordStates below */
 int keywordChars[128] = {
 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
@@ -70,69 +62,22 @@ int keywordStates[14][12] = {
   {0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0}, // 13: then
 };
 
-vector<Token> tokenize();
+void tokenize(ostream&);
 
-void handleNum() {
-	int start = i;
-	while(asciiToCategory[input.at(++i)] == 4 && i < input.length());
-	t.lexeme = input.substr(start, i - start);
-	t.category = "NUM";
+void handleNum();
+void handleAlpha();
+void handleSpecial();
+void handleWhitespace();
+void handleOther();
 
-	/* undo lookahead */
-	--i;
-	cout << "Num: " << t.lexeme << "\n";
-};
-
-void handleAlpha() {
-	int start = i;
-	char c = input.at(i);
-	int keywordLetter = keywordChars[c];
-	int state = keywordStates[0][keywordLetter];
-	int lastState;
-
-	while(keywordLetter && state) {
-		lastState = state; // keep track for check below
-		c = input.at(++i);
-		keywordLetter = keywordChars[c];
-		state = keywordStates[state][keywordLetter];
-	}
-
-	if (lastState == -1) {
-		t.category = "KW";
-	} else {
-		while(asciiToCategory[input.at(++i)] == 3 && i < input.length());
-		t.category = "ID";
-	}
-	t.lexeme = input.substr(start, i - start);
-
-	/* undo lookahead */
-	--i;
-
-	cout << "Alpha: " << t.lexeme << " category: " << t.category << "\n";
-};
-
-void handleSpecial() {
-	t.lexeme = input.at(i);
-	t.category = "SYM";
-	cout << "Special: " << t.lexeme << "\n";
-};
-
-void handleWhitespace() {
-	t.lexeme = input.at(i);
-	t.category = "WS";
-	cout << "Whitespace: " << t.lexeme << "\n";
-};
-
-void handleOther() {
-	cerr << "ERROR: Unhandled char: " << (int) input.at(i) << "\n";
-	exit(1);
-};
-
+/* Jump table for the above functions */
 void (*pf[])(void) = {handleOther, handleWhitespace, handleSpecial, handleAlpha, handleNum};
 
-int main(int argc, char *argv[]) {
-	vector<Token> tokens;
+Token t;
+string input;
+int i, branchCount;
 
+int main(int argc, char *argv[]) {
 	/* Check that input and output file are given on commandline */
 	if (argc < 3) {
 		cerr << "Usage: " << argv[0] << " <input file> <output file>\n";
@@ -159,37 +104,87 @@ int main(int argc, char *argv[]) {
 	/* Output copy of the input */
 	outputf << input;
 
-	tokens = tokenize();
-	
-	for(int i=0; i < tokens.size(); i++) {
-		cout << tokens[i].lexeme << "\n";
-	}
+	/* pass ostream reference to avoid having to pass tokens back
+	 * and iterate through them again, minimizing branchCount */
+	tokenize(outputf);
 
-	cout << input;
+	/* hack to replace last comma in token list with newline */
+	outputf.seekp(outputf.tellp() - (long) 2);
+	outputf << "\n";
 
-	cout << "Hello world\n";
+	cout << "Number of branches: " << branchCount << "\n";
 }
 
-vector<Token> tokenize() {
-	vector<Token> tokens;
-
+void tokenize(ostream& f) {
 	int category;
 
+	i = 0;
 	while (i < input.size()) {
 		category = asciiToCategory[input.at(i)];
-		pf[category]();		
+		pf[category]();	// jump table
+		f << "(\"" << t.lexeme << "\", " << t.category << "), ";
 		i++;
+
+		branchCount++;
+	}
+}
+
+void handleAlpha() {
+	int start = i;
+	char c = input.at(i);
+	int keywordLetter = keywordChars[c];
+	int state = keywordStates[0][keywordLetter];
+	int lastState;
+
+	while(keywordLetter && state) {
+		lastState = state; // keep track for check below
+		c = input.at(++i);
+		keywordLetter = keywordChars[c];
+		state = keywordStates[state][keywordLetter];
+
+		branchCount++;
 	}
 
-	t.lexeme = "a lexeme";
-	t.category = "a category";
+	branchCount ++; // increment once for if/else
+	if (lastState == -1) {
+		t.category = "KW";
+	} else {
+		while(asciiToCategory[input.at(++i)] == 3 && i < input.length()) branchCount++;
+		t.category = "ID";
+	}
 
-	tokens.push_back(t);
+	t.lexeme = input.substr(start, i - start);
 
-	t.lexeme = "b";
-	t.category = "b";
+	/* undo lookahead */
+	--i;
+};
 
-	tokens.push_back(t);
+void handleNum() {
+	int start = i;
+	while(asciiToCategory[input.at(++i)] == 4 && i < input.length()) branchCount++;
+	t.lexeme = input.substr(start, i - start);
+	t.category = "NUM";
 
-	return tokens;
-}
+	/* undo lookahead */
+	--i;
+};
+
+void handleWhitespace() {
+	/* hack to avoid branch statement
+	 * SPACE = 0x20 
+	 * 0x20 >> 5 == 1
+	 */
+	string ws_lexemes[2] = {"\\n", " "};
+	t.lexeme = ws_lexemes[input.at(i) >> 5];
+	t.category = "WS";
+};
+
+void handleSpecial() {
+	t.lexeme = input.at(i);
+	t.category = "SYM";
+};
+
+void handleOther() {
+	cerr << "ERROR: Unhandled char: " << (int) input.at(i) << "\n";
+	exit(1);
+};

@@ -10,4 +10,4 @@ edit:
 	vim hw1.cpp
 
 clean:
-	rm hw1 || true
+	rm hw1 output.txt || true
