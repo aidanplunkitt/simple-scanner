@@ -6,12 +6,9 @@
 
 using namespace std;
 
-//char inputBuff[100];
-char tokenBuff[40];
-
 struct Token {
 	string lexeme;
-	string categoryStr;
+	string category;
 	/*
 	char lexeme[20];
 	char categoryStr[4];
@@ -25,6 +22,10 @@ enum Category {
 	Alpha,
 	Digit
 };
+
+string input;
+int i = 0;
+Token t;
 
 int asciiToCategory[128] = {
 0, 0, 0, 0, 0, 0, 0, 0,   0, 1, 1, 0, 0, 1, 0, 0, // \t \n \r
@@ -44,59 +45,92 @@ int keywordChars[128] = {
 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 1, 1, 1, 0,   1, 1, 0, 0, 1, 0, 1, 0, // d e f h i l n
-0, 0, 1, 1, 1, 1, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, // r s t y
+0, 0, 0, 0, 1, 2, 3, 0,   4, 5, 0, 0, 6, 0, 7, 0,   // d e f h i l n
+0, 0, 8, 9, 10, 11, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, // r s t u
 };
 
 // row = state
 // col = input
 // value = next state
-int keywordStates[16][12] = {
+int keywordStates[14][12] = {
 //     d   e   f   h   i   l   n   r   s   t   u
-  {0,  0,  1,  0,  0,  6,  0,  0,  7,  0, 12,  0}, // 0:  e i r t
+  {0,  0,  1,  0,  0,  5,  0,  0,  6,  0, 11,  0}, // 0:  e i r t
   {0,  0,  0,  0,  0,  0,  2,  4,  0,  0,  0,  0}, // 1:  el, en
   {0,  0,  0,  0,  0,  0,  0,  0,  0,  3,  0,  0}, // 2:  els
-  {0,  0, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 3:  else
-  {0, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 4:  end
-  {0,  0,  0, 15,  0,  0,  0,  0,  0,  0,  0,  0}, // 6:  if
-  {0,  0,  8,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 7:  re
-  {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  0}, // 8:  ret
-  {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10}, // 9:  retu
-  {0,  0,  0,  0,  0,  0,  0,  0, 11,  0,  0,  0}, // 10: retur
-  {0,  0,  0,  0,  0,  0,  0, 15,  0,  0,  0,  0}, // 11: return
-  {0,  0,  0,  0, 13,  0,  0,  0,  0,  0,  0,  0}, // 12: th
-  {0,  0, 14,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 13: the
-  {0,  0,  0,  0,  0,  0,  0, 15,  0,  0,  0,  0}, // 14: then
-  {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0}  // 15: ending state
+  {0,  0, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 3:  else
+  {0, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 4:  end
+  {0,  0,  0, -1,  0,  0,  0,  0,  0,  0,  0,  0}, // 5:  if
+  {0,  0,  7,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 6:  re
+  {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  8,  0}, // 7:  ret
+  {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9}, // 8:  retu
+  {0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0}, // 9:  retur
+  {0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0}, // 10: return
+  {0,  0,  0,  0, 12,  0,  0,  0,  0,  0,  0,  0}, // 11: th
+  {0,  0, 13,  0,  0,  0,  0,  0,  0,  0,  0,  0}, // 12: the
+  {0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0}, // 13: then
 };
 
-vector<Token> tokenize(string str);
+vector<Token> tokenize();
 
-void handleNum(string &s, int *i) {
-	cout << "Num: " << s.at(*i) << "\n";
+void handleNum() {
+	int start = i;
+	while(asciiToCategory[input.at(++i)] == 4 && i < input.length());
+	t.lexeme = input.substr(start, i - start);
+	t.category = "NUM";
+
+	/* undo lookahead */
+	--i;
+	cout << "Num: " << t.lexeme << "\n";
 };
 
-void handleAlpha(string &s, int *i) {
-	cout << "Alpha\n";
+void handleAlpha() {
+	int start = i;
+	char c = input.at(i);
+	int keywordLetter = keywordChars[c];
+	int state = keywordStates[0][keywordLetter];
+	int lastState;
+
+	while(keywordLetter && state) {
+		lastState = state; // keep track for check below
+		c = input.at(++i);
+		keywordLetter = keywordChars[c];
+		state = keywordStates[state][keywordLetter];
+	}
+
+	if (lastState == -1) {
+		t.category = "KW";
+	} else {
+		while(asciiToCategory[input.at(++i)] == 3 && i < input.length());
+		t.category = "ID";
+	}
+	t.lexeme = input.substr(start, i - start);
+
+	/* undo lookahead */
+	--i;
+
+	cout << "Alpha: " << t.lexeme << " category: " << t.category << "\n";
 };
 
-void handleSpecial(string &s, int *i) {
-	cout << "Special\n";
+void handleSpecial() {
+	t.lexeme = input.at(i);
+	t.category = "SYM";
+	cout << "Special: " << t.lexeme << "\n";
 };
 
-void handleWhitespace(string &s, int *i) {
-	cout << "Whitespace\n";
+void handleWhitespace() {
+	t.lexeme = input.at(i);
+	t.category = "WS";
+	cout << "Whitespace: " << t.lexeme << "\n";
 };
 
-void handleOther(string &s, int *i) {
-	cerr << "ERROR: Unhandled char: " << (int) s.at(*i) << "\n";
+void handleOther() {
+	cerr << "ERROR: Unhandled char: " << (int) input.at(i) << "\n";
 	exit(1);
 };
 
-void (*pf[])(string&, int*) = {handleOther, handleWhitespace, handleSpecial, handleAlpha, handleNum};
+void (*pf[])(void) = {handleOther, handleWhitespace, handleSpecial, handleAlpha, handleNum};
 
 int main(int argc, char *argv[]) {
-	string input;
 	vector<Token> tokens;
 
 	/* Check that input and output file are given on commandline */
@@ -125,50 +159,35 @@ int main(int argc, char *argv[]) {
 	/* Output copy of the input */
 	outputf << input;
 
-	tokens = tokenize(input);
+	tokens = tokenize();
 	
 	for(int i=0; i < tokens.size(); i++) {
 		cout << tokens[i].lexeme << "\n";
 	}
-	/*
-	while (tokenize()) {
-		sprintf(tokenBuff, "(\"%s\",%s),", token.lexeme, token.categoryStr);	
-		cout << tokenBuff;
-		output << tokenBuff;
-	}
-	*/
-	/*
-	while (*s != '\0') {
-		printf("%c -> %d\n", *s, *s);
-		s++;
-	}
-	*/
 
 	cout << input;
 
 	cout << "Hello world\n";
 }
 
-vector<Token> tokenize(string str) {
+vector<Token> tokenize() {
 	vector<Token> tokens;
 
-	Token t;
 	int category;
 
-	int i = 0;
-	while (i < str.size()) {
-		category = asciiToCategory[str.at(i)];
-		pf[category](&str, &i);		
+	while (i < input.size()) {
+		category = asciiToCategory[input.at(i)];
+		pf[category]();		
 		i++;
 	}
 
 	t.lexeme = "a lexeme";
-	t.categoryStr = "a category";
+	t.category = "a category";
 
 	tokens.push_back(t);
 
 	t.lexeme = "b";
-	t.categoryStr = "b";
+	t.category = "b";
 
 	tokens.push_back(t);
 
