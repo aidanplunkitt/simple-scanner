@@ -1,8 +1,5 @@
 #include <iostream>
-#include <stdio.h>
-#include <string.h>
 #include <fstream>
-#include <vector>
 
 using namespace std;
 
@@ -31,19 +28,19 @@ int asciiToCategory[128] = {
 
 /* Used for state machine table keywordStates below */
 int keywordChars[128] = {
-0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 1, 2, 3, 0,   4, 5, 0, 0, 6, 0, 7, 0,   // d e f h i l n
-0, 0, 8, 9, 10, 11, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0, // r s t u
+0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0, 
+0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  
+0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  
+0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  
+0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  
+0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  
+0,  0,  0,  0,  1,  2,  3,  0,    4,  5,  0,  0,  6,  0,  7,  0, //  d  e  f  h  i  l  n
+0,  0,  8,  9, 10, 11,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0, //  r  s  t  u
 };
 
 // row = state
 // col = input
-// value = next state
+// value = next state (-1 = accepting state)
 int keywordStates[14][12] = {
 //     d   e   f   h   i   l   n   r   s   t   u
   {0,  0,  1,  0,  0,  5,  0,  0,  6,  0, 11,  0}, // 0:  e i r t
@@ -76,7 +73,6 @@ void (*pf[])(void) = {handleOther, handleWhitespace, handleSpecial, handleAlpha,
 Token t;
 string input;
 int i, branchCount;
-int counts[5];
 
 int main(int argc, char *argv[]) {
 	/* Check that input and output file are given on commandline */
@@ -114,8 +110,6 @@ int main(int argc, char *argv[]) {
 	outputf << "\n";
 
 	cout << "Total number of branches: " << branchCount << "\n";
-	cout << counts[0] << " " << counts[1] << " " << counts[2] 
-	       	       	  << " " << counts[3] << " " << counts[4] << "\n";
 }
 
 void tokenize(ostream& f) {
@@ -128,7 +122,6 @@ void tokenize(ostream& f) {
 		f << "(\"" << t.lexeme << "\", " << t.category << "), ";
 		i++;
 
-		counts[0]++;
 		branchCount++;
 	}
 }
@@ -146,19 +139,14 @@ void handleAlpha() {
 		keywordLetter = keywordChars[c];
 		state = keywordStates[state][keywordLetter];
 
-		counts[1]++;
 		branchCount++;
 	}
 
-	counts[2]++;
 	branchCount ++; // increment once for if/else
 	if (lastState == -1) {
 		t.category = "KW";
 	} else {
-		while(asciiToCategory[input.at(++i)] == 3 && i < input.length()) {
-			counts[3]++;
-			branchCount++;
-		}
+		while(asciiToCategory[input.at(++i)] == 3 && i < input.length()) branchCount++;
 		t.category = "ID";
 	}
 
@@ -170,10 +158,7 @@ void handleAlpha() {
 
 void handleNum() {
 	int start = i;
-	while(asciiToCategory[input.at(++i)] == 4 && i < input.length()) {
-		counts[4]++;
-		branchCount++;
-	}
+	while(asciiToCategory[input.at(++i)] == 4 && i < input.length()) branchCount++;
 	t.lexeme = input.substr(start, i - start);
 	t.category = "NUM";
 
